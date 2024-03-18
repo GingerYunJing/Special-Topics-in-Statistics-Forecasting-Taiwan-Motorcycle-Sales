@@ -1,0 +1,76 @@
+data Chisquared;
+	/*新建一個資料，名稱為ChiSquared*/
+	infile "C:\Users\ginge\Desktop\chisquare.txt" dsd dlm=" ";
+	input @1 Region $ 14.  @16 Brands $ 11.  @28 Count;
+	label Region='Export Region' Brands='Motorcycle Brand';
+
+	/* infile讀取chisquare.txt資料，記得先存取以下內容為txt檔，並放到對應路徑底下
+	HongKong/China Sanyang     7586
+	HongKong/China Kymco       109864
+	HongKong/China Suzuki      24
+	HongKong/China Yamaha      3023
+	HongKong/China MotivePower 0
+	Asia/OtherArea Sanyang     99895
+	Asia/OtherArea Kymco       15731
+	Asia/OtherArea Suzuki      2980
+	Asia/OtherArea Yamaha      23217
+	Asia/OtherArea MotivePower 332
+	Europe         Sanyang     8757
+	Europe         Kymco       22439
+	Europe         Suzuki      10
+	Europe         Yamaha      2052
+	Europe         MotivePower 0
+	America        Sanyang     2571
+	America        Kymco       47763
+	America        Suzuki      1602
+	America        Yamaha      2010
+	America        MotivePower 4653
+	Africa         Sanyang     202
+	Africa         Kymco       793
+	Africa         Suzuki      0
+	Africa         Yamaha      0
+	Africa         MotivePower 23
+	Oceania        Sanyang     7
+	Oceania        Kymco       2203
+	Oceania        Suzuki      795
+	Oceania        Yamaha      0
+	Oceania        MotivePower 54
+	*/
+run;
+
+proc print data=Chisquared label;
+	label Region='Export Region' Brands='Motorcycle Brand';
+run;
+
+
+proc freq data=ChiSquared;
+ tables Brands Region ; 
+weight  Count; 
+run;
+
+
+proc freq data=ChiSquared order=data; /*按照data的order排序*/
+ tables Brands*Region /chisq;  /* 列聯表須於兩變項中加上 * 號*/
+ weight Count;
+ run;
+
+/****嘗試沒有按照data排序****/
+/* proc freq data=ChiSquared ;    */
+/* tables Brands*Region /chisq;   */
+/* weight Count;                         */
+/* run;                                        */
+/****************************/
+
+title"Contingency Table for Test of Chi-Square Independence";
+proc freq data=ChiSquared order=data; 
+ tables Brands*Region /chisq nocol norow nopercent; 
+ weight Count;
+ run;
+ title"";
+
+ title"Contingency Table for Test of Chi-Square Independence";
+proc freq data=ChiSquared order=data; 
+ tables Brands*Region /chisq  norow nopercent; 
+ weight Count;
+ run;
+ title"";

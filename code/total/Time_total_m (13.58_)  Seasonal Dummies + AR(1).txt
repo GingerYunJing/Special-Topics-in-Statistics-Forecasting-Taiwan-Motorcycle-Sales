@@ -1,0 +1,205 @@
+
+data motorcycle132;
+	input y @@;
+	format y comma10.;
+	time=_n_;
+	date = intnx( 'month', '31aug2010'd, _n_ );
+	format date monyy.;
+	format y comma9.4;
+
+/*Sep2010 - Aug2021*/
+cards;
+95043
+91011
+80949
+69042
+98553
+67674
+99999
+93148
+105015
+105519
+107443
+110258
+117566
+116846
+96541
+74596
+69970
+82485
+89305
+78503
+96391
+88123
+92443
+100059
+103379
+96221
+97341
+85592
+83315
+63192
+92106
+89081
+94188
+81497
+98622
+99438
+98964
+95044
+89686
+74250
+89780
+82337
+99957
+105410
+103923
+96671
+110162
+101398
+101499
+96107
+87436
+86397
+108410
+74223
+107937
+98231
+98560
+105433
+105514
+92221
+90310
+87999
+76632
+65422
+85109
+66138
+104940
+98395
+106935
+111745
+109473
+124149
+104733
+107548
+100368
+84777
+91854
+79720
+109422
+88187
+99391
+111605
+111601
+119978
+118936
+105234
+104727
+90298
+101921
+68245
+116374
+85264
+106843
+92771
+97679
+86535
+79717
+84006
+85333
+64730
+78601
+64745
+90536
+91256
+106086
+87907
+94231
+83070
+80596
+78633
+85528
+62003
+68905
+87388
+102201
+103732
+74912
+79560
+91907
+103807
+120659
+104133
+123149
+137513
+111837
+78417
+113963
+93834
+94906
+64733
+85886
+80101
+;
+
+
+symbol1 i=join  v=star c=brown;
+symbol2  i=join  v=dot c=deepskyblue;
+symbol3  i=join  v=diamondfilled c=teal;
+
+
+proc print data=motorcycle132;
+run;
+
+/*需先將Time Series Forecast System點選之結果之data set命名為output另存於library的work*/
+/*需先將Time Series Forecast System點選之參數估計結果命名為parameter_estimates另存於library的work*/
+
+proc print data=parameter_estimates;
+run;
+
+data motorcycle_reg_132;
+merge motorcycle132 output;
+run;
+
+proc print data=motorcycle_reg_132;
+run;
+
+/*RENAME statement不再需要輸出excel去複製貼上新的cards*/
+/*where statement 篩選未來12筆資料*/
+data motorcycle_reg;
+set motorcycle_reg_132;
+rename y=x;
+rename predict=forecast;
+rename upper=u95;
+rename lower=l95;
+where time>120;
+run;
+
+proc print data=motorcycle_reg;
+run;
+
+title1 'Forecasts and 95% Prediction Intervals for Taiwan Motorcycle Total Sales' ;
+title2 'Obtain from Time Series Regresion Model' ;
+ legend1  label=none value=('Predicted' '95% lower limit' '95% upper limit');
+proc gplot data=motorcycle_reg;
+plot (forecast)*date=1
+ (l95)*date=3
+ (u95)*date=3
+ (x)*date=2
+/overlay hminor=0  legend=legend1 haxis= '1sep2020'd to  '1aug2021'd by month;
+run;
+quit;
+
+data MSE;
+set motorcycle_reg;
+MAD = abs(x-forecast);
+MSE = (x-forecast)**2;  /*  ** ：square */
+MPE = ((x-forecast)/x)*100;
+MAPE = (abs(MPE));
+run;
+
+title ' Measuring Forecast Error of Time Series Regresion Model' ;
+proc means data=MSE;
+var MAD MSE MPE MAPE;
+run;

@@ -1,0 +1,354 @@
+
+dm "output;clear;log;clear;";
+title1 'Taiwan Motorcycle Export Sales Sep2010 - Aug2021';
+title2 'Hold-out Sep2020 - Aug2021';
+data motorcycle;
+	input y @@;
+	format y comma10.;
+	time=_n_;
+	date = intnx( 'month', '1aug2010'd, _n_ );
+	format date monyy.;
+	format y comma9.4;
+
+	/*Sep2010 - Aug2021*/
+	cards;
+37786
+36987
+35885
+32957
+53872
+38459
+43861
+39581
+52085
+48227
+46702
+48150
+47615
+52088
+45875
+40999
+35213
+40865
+39185
+32501
+42787
+37789
+30678
+34815
+37941
+41134
+50292
+52362
+37498
+32223
+39892
+33919
+34475
+25637
+28871
+32240
+31692
+40087
+41485
+38865
+39879
+37117
+37151
+44657
+45553
+40156
+43032
+42086
+36865
+40065
+38426
+43707
+54256
+36805
+47810
+42050
+42494
+40340
+32063
+27906
+31612
+32662
+26936
+31219
+35192
+33089
+44388
+38820
+34015
+38318
+34073
+37111
+31442
+33495
+28819
+31285
+30838
+25054
+30350
+25393
+28063
+31430
+29633
+34871
+28120
+23672
+18560
+22580
+25499
+18066
+30768
+23161
+37931
+26736
+35608
+28615
+21248
+23646
+34356
+20482
+19541
+23218
+28977
+26914
+36006
+30339
+29633
+26230
+22618
+21359
+35128
+16379
+25312
+33372
+35743
+41181
+15612
+15642
+19875
+29307
+;
+/*
+39648
+30481
+33699
+32482
+31922
+25862
+44701
+38067
+45028
+32160
+31811
+23732
+*/
+symbol1 i=join  v=star c=brown;
+symbol2  i=join  v=dot c=deepskyblue;
+symbol3  i=join  v=diamondfilled c=teal;
+
+proc gplot data=motorcycle;
+	plot y * date = 2 / haxis= '1aug2010'd to '1aug2020'd by year;
+	plot y *time =3 /haxis=0 to 120 by 10;
+run;
+quit;
+
+data motorcycle132;
+	input y @@;
+	format y comma10.;
+	time=_n_;
+	date = intnx( 'month', '1aug2010'd, _n_ );
+	format date monyy.;
+	format y comma9.4;
+
+	/*Sep2010 - Aug2021*/
+	cards;
+37786
+36987
+35885
+32957
+53872
+38459
+43861
+39581
+52085
+48227
+46702
+48150
+47615
+52088
+45875
+40999
+35213
+40865
+39185
+32501
+42787
+37789
+30678
+34815
+37941
+41134
+50292
+52362
+37498
+32223
+39892
+33919
+34475
+25637
+28871
+32240
+31692
+40087
+41485
+38865
+39879
+37117
+37151
+44657
+45553
+40156
+43032
+42086
+36865
+40065
+38426
+43707
+54256
+36805
+47810
+42050
+42494
+40340
+32063
+27906
+31612
+32662
+26936
+31219
+35192
+33089
+44388
+38820
+34015
+38318
+34073
+37111
+31442
+33495
+28819
+31285
+30838
+25054
+30350
+25393
+28063
+31430
+29633
+34871
+28120
+23672
+18560
+22580
+25499
+18066
+30768
+23161
+37931
+26736
+35608
+28615
+21248
+23646
+34356
+20482
+19541
+23218
+28977
+26914
+36006
+30339
+29633
+26230
+22618
+21359
+35128
+16379
+25312
+33372
+35743
+41181
+15612
+15642
+19875
+29307
+39648
+30481
+33699
+32482
+31922
+25862
+44701
+38067
+45028
+32160
+31811
+23732
+;
+
+symbol1 i=join  v=star c=brown;
+symbol2  i=join  v=dot c=deepskyblue;
+symbol3  i=join  v=diamondfilled c=teal;
+
+/*需先將Time Series Forecast System點選之結果之data set命名為output另存於library的work*/
+proc print data=parameter_estimates;
+run;
+data motorcycle_es_132;
+merge output motorcycle132;
+run;
+proc print data=motorcycle_es_132;
+run;
+
+/*RENAME statement不再需要輸出excel去複製貼上新的cards*/
+/*where statement 篩選未來12筆資料*/
+data motorcycle_es;
+set motorcycle_es_132;
+where time>120;
+rename y=x;
+rename upper=u95;
+rename lower=l95;
+rename predict=forecast;
+run;
+proc print data=motorcycle_es;
+run;
+
+title1 'Forecasts and 95% Prediction Intervals for Taiwan Motorcycle Export Sales' ;
+title2 'Obtain from Exponential Smoothing' ;
+ legend1  label=none value=('Predicted' '95% lower limit' '95% upper limit');
+proc gplot data=motorcycle_es;
+plot (forecast)*date=1
+ (l95)*date=3
+ (u95)*date=3
+ (x)*date=2
+/overlay hminor=0  legend=legend1 haxis= '1sep2020'd to  '1aug2021'd by month;
+run;
+quit;
+
+data MSE;
+set motorcycle_es;
+MAD = abs(x-forecast);
+MSE = (x-forecast)**2;  /*  ** ：square */
+MPE = ((x-forecast)/x)*100;
+MAPE = (abs(MPE));
+run;
+
+title ' Measuring Forecast Error of Exponential Smoothing Method' ;
+proc means data=MSE;
+var MAD MSE MPE MAPE;
+run;
+

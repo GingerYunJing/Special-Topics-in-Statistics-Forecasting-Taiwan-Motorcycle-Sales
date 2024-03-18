@@ -1,0 +1,384 @@
+dm "output;clear;log;clear;";
+title1 'Taiwan Electric Motorcycle Total Sales Sep2010 - Aug2021';
+title2 'Hold-out Sep2020 - Aug2021';
+data motorcycle;
+	input y @@;
+	format y comma10.;
+	time=_n_;
+	date = intnx( 'month', '31aug2010'd, _n_ );
+	format date monyy.;
+	format y comma9.4;
+
+	/*Sep2010 - Aug2020*/
+cards;
+234
+262
+263
+281
+670
+443
+956
+818
+975
+1267
+784
+560
+241
+444
+343
+492
+409
+668
+1044
+994
+1086
+691
+1063
+763
+458
+600
+426
+433
+962
+699
+834
+752
+1197
+644
+678
+442
+194
+331
+416
+370
+709
+550
+965
+1071
+1060
+1145
+1580
+883
+1113
+960
+746
+723
+553
+663
+1154
+883
+743
+1619
+1145
+1068
+1154
+646
+977
+955
+861
+934
+801
+517
+1110
+971
+894
+877
+1155
+1090
+1234
+652
+583
+848
+1268
+934
+1402
+1727
+1614
+1238
+1759
+1522
+1862
+1643
+1308
+881
+1961
+1251
+2262
+1411
+1399
+1597
+1299
+2233
+1429
+1716
+2271
+893
+1520
+1316
+1558
+1211
+1308
+2121
+2496
+3089
+4670
+3189
+1128
+1086
+1606
+983
+801
+688
+1155
+1482
+;
+/*
+839
+619
+912
+416
+274
+452
+1590
+797
+766
+951
+1193
+648
+*/
+
+
+symbol1 i=join  v=star c=brown;
+symbol2  i=join  v=dot c=deepskyblue;
+symbol3  i=join  v=diamondfilled c=teal;
+
+
+proc gplot data=motorcycle;
+	plot y * date = 2 / haxis= '1aug2010'd to '1aug2020'd by year;
+	plot y *time =3 /haxis=0 to 120 by 10;
+run;
+quit;
+
+proc print data=motorcycle;
+run; 
+
+proc arima data=motorcycle;
+identify var= y;
+identify var= y(1);
+run;
+
+
+proc arima data=motorcycle;
+identify var= y(1);
+estimate q=(1)  method=ml plot;
+run;
+
+proc arima data=motorcycle;
+identify var= y(1);
+estimate q=(1) noconstant  method=ml plot;
+forecast out=output lead=12  id=date interval=month;
+run;
+
+proc print data=output;
+run;
+
+
+
+data motorcycle132;
+	input y @@;
+	format y comma10.;
+	time=_n_;
+	date = intnx( 'month', '31aug2010'd, _n_ );
+	format date monyy.;
+	format y comma9.4;
+
+/*Sep2010 - Aug2021*/
+cards;
+234
+262
+263
+281
+670
+443
+956
+818
+975
+1267
+784
+560
+241
+444
+343
+492
+409
+668
+1044
+994
+1086
+691
+1063
+763
+458
+600
+426
+433
+962
+699
+834
+752
+1197
+644
+678
+442
+194
+331
+416
+370
+709
+550
+965
+1071
+1060
+1145
+1580
+883
+1113
+960
+746
+723
+553
+663
+1154
+883
+743
+1619
+1145
+1068
+1154
+646
+977
+955
+861
+934
+801
+517
+1110
+971
+894
+877
+1155
+1090
+1234
+652
+583
+848
+1268
+934
+1402
+1727
+1614
+1238
+1759
+1522
+1862
+1643
+1308
+881
+1961
+1251
+2262
+1411
+1399
+1597
+1299
+2233
+1429
+1716
+2271
+893
+1520
+1316
+1558
+1211
+1308
+2121
+2496
+3089
+4670
+3189
+1128
+1086
+1606
+983
+801
+688
+1155
+1482
+839
+619
+912
+416
+274
+452
+1590
+797
+766
+951
+1193
+648
+;
+
+
+symbol1 i=join  v=star c=brown;
+symbol2  i=join  v=dot c=deepskyblue;
+symbol3  i=join  v=diamondfilled c=teal;
+
+proc gplot data=motorcycle132;
+	plot y * date = 2 / haxis= '1aug2010'd to '1aug2021'd by year;
+	plot y *time =3 /haxis=0 to 140 by 10;
+run;
+quit;
+proc print data=motorcycle132;
+run; 
+
+
+data motorcycle_arima_132;
+merge output motorcycle132;
+run;
+proc print data=motorcycle_arima_132;
+run;
+
+/*RENAME statement不再需要輸出excel去複製貼上新的cards*/
+/*where statement 篩選未來12筆資料*/
+data motorcycle_arima;
+set motorcycle_arima_132;
+where time>120;
+rename y=x;
+run;
+proc print data=motorcycle_arima;
+run;
+
+title1 'Forecasts and 95% Prediction Intervals for Taiwan Electric Motorcycle Total Sales' ;
+title2 'Obtain from ARIMA model' ;
+ legend1  label=none value=('Predicted' '95% lower limit' '95% upper limit');
+proc gplot data=motorcycle_arima;
+plot (forecast)*date=1
+ (l95)*date=3
+ (u95)*date=3
+ (x)*date=2
+/overlay hminor=0  legend=legend1 haxis= '1sep2020'd to  '1aug2021'd by month;
+run;
+quit;
+
+data MSE;
+set motorcycle_arima;
+MAD = abs(x-forecast);
+MSE = (x-forecast)**2;  /*  ** ：square */
+MPE = ((x-forecast)/x)*100;
+MAPE = (abs(MPE));
+run;
+
+title ' Measuring Forecast Error of ARIMA model' ;
+proc means data=MSE;
+var MAD MSE MPE MAPE;
+run;

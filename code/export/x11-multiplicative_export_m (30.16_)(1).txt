@@ -1,0 +1,531 @@
+dm "output;clear;log;clear;";
+title1 'Taiwan Motorcycle Export Sales Sep2010 - Aug2021';
+title2 'Hold-out Sep2020 - Aug2021';
+data motorcycle;
+	input y @@;
+	format y comma10.;
+	time=_n_;
+	date = intnx( 'month', '31aug2010'd, _n_ );
+	format date monyy.;
+	format y comma9.4;
+
+	/*Sep2010 - Aug2020*/
+cards;
+37786
+36987
+35885
+32957
+53872
+38459
+43861
+39581
+52085
+48227
+46702
+48150
+47615
+52088
+45875
+40999
+35213
+40865
+39185
+32501
+42787
+37789
+30678
+34815
+37941
+41134
+50292
+52362
+37498
+32223
+39892
+33919
+34475
+25637
+28871
+32240
+31692
+40087
+41485
+38865
+39879
+37117
+37151
+44657
+45553
+40156
+43032
+42086
+36865
+40065
+38426
+43707
+54256
+36805
+47810
+42050
+42494
+40340
+32063
+27906
+31612
+32662
+26936
+31219
+35192
+33089
+44388
+38820
+34015
+38318
+34073
+37111
+31442
+33495
+28819
+31285
+30838
+25054
+30350
+25393
+28063
+31430
+29633
+34871
+28120
+23672
+18560
+22580
+25499
+18066
+30768
+23161
+37931
+26736
+35608
+28615
+21248
+23646
+34356
+20482
+19541
+23218
+28977
+26914
+36006
+30339
+29633
+26230
+22618
+21359
+35128
+16379
+25312
+33372
+35743
+41181
+15612
+15642
+19875
+29307
+;
+/*
+39648
+30481
+33699
+32482
+31922
+25862
+44701
+38067
+45028
+32160
+31811
+23732
+*/
+
+
+symbol1 i=join  v=star c=brown;
+symbol2  i=join  v=dot c=deepskyblue;
+symbol3  i=join  v=diamondfilled c=teal;
+
+
+proc gplot data=motorcycle;
+	plot y * date = 2 / haxis= '1aug2010'd to '1aug2020'd by year;
+	plot y *time =3 /haxis=0 to 120 by 10;
+run;
+quit;
+
+proc print data=motorcycle;
+run; 
+
+proc x11 data=motorcycle  yraheadout;   /*yraheadout往後做一年*/
+monthly date=date;    /* tdregr=none test;   */
+tables b1 d10 d11 d12 d13;   
+output out=comp b1=y d10=sn d11=dy d12=trc d13=ir;
+var y; 
+run;
+/*   For the standard X-11 method, there must be at least three years of observations  in the input data sets. 
+For the X-11-ARIMA method, there must be at least five years of observations  in the input data sets. 
+
+For monthly data, the YRAHEADOUT option affects only tables C16, C18, and D10 (seasonal factors).
+For quarterly data, only D10 is affected. Variables for all other tables have missing values for the forecast observations. 
+The forecast values for a table are included only if that table is specified in the OUTPUT statement. 
+If the input data are monthly time series, 12 extra observations are added to the end of the output data set.
+
+b1: the observed time series
+d10: the seasonal component 
+d11: deseasonalized observations
+d12: trend-cycle component 
+d13: the irregular component 
+*/
+
+data motorcycle2;  /* change scales of sn and ir compoents */
+merge motorcycle  comp;  /*comp是x11的output*/
+t=_n_;
+sn=sn/100;  /*data被乘以100 所以把他除回來*/
+ir=ir/100;     /*data被乘以100 所以把他除回來*/
+run;
+
+proc print data=motorcycle2;
+run;
+
+
+title1 'Time plot of deseasonalized Taiwan Motorcycle Export Sales ';
+title2 'Hold-out Sep2020 - Aug2021';
+legend1 label=none value=('original' 'deseasonalized');
+proc gplot;
+plot (y dy)*t  /overlay 
+legend=legend1 
+haxis=0 to 120 by 5;
+run;
+
+
+/* time series plots for  trc, sn, and ir compoents */
+title ' Trend-cycle component ';
+title2 'Hold-out Sep2020 - Aug2021';
+proc gplot;
+plot trc *t /haxis=0 to 120 by 5;
+run;
+title ' Seasonal component ';
+title2 'Hold-out Sep2020 - Aug2021';
+proc gplot;
+plot sn *t/haxis=0 to 135 by 5 href=120; 
+run; 
+title ' Irregular component ';
+title2 'Hold-out Sep2020 - Aug2021';
+proc gplot;
+plot ir *t/haxis=0 to 120 by 5; 
+run;
+
+/*overlay all components y, dy ,trc, sn, and ir in time series plots */
+title ' overlay all components  ';
+title2 'Hold-out Sep2020 - Aug2021';
+proc gplot;
+plot (y trc sn ir dy)*t  /overlay 
+legend=legend1 
+haxis=0 to 135 by 5
+href=120;
+run;
+
+proc print data=comp;
+run;
+
+/*yt=tr*sn*cl*ir  對剔除季節因素之觀察值配適迴歸直線 去估計 tr*/
+proc reg data=motorcycle2;
+model dy= t /p DW; /* P=predictions DW=Durbin-Watson Statistic */
+output out=all p=tr;
+run;
+
+proc print data=all;
+run;
+
+
+/*dw=1查看一階自相關 dwprob：統計量檢定 nlag=1：殘差配適一階模型*/
+/*模型：dy = b0 + b1t + et   where et=phi2*et-2+phi1*et-1+at , at~iidN(0,sigma^2)*/
+proc autoreg data=motorcycle2;
+*model dy=t/ dw=1 dwprob;  /*沒有自我相關就不用nlag*/
+model dy=t/nlag=1 dw=1 dwprob;  /*因為有自我相關所以要nlag=1*/
+*model dy=t/nlag=2 dw=1 dwprob;  /*因為有自我相關所以要nlag=2*/
+output out=for1     /* All  outputs are  saved in for1 */
+p=predict ucl=u95 lcl=l95;
+run;
+
+proc print data=for1;
+run;
+
+
+title1 'Estimate of trend obtained from a regression with AR(1) errors';
+title2 'Hold-out Sep2020 - Aug2021';
+legend2  label=none value=('trend-cycle' 'Predicted');
+
+/*trc 是x11的trend-cycle component；predict是regression的預測值也是估計的tr*/
+proc gplot;
+plot ( trc predict) *t /overlay 
+haxis=0 to 135 by 5 
+href=120 legend=legend2;
+run;
+
+/*  乘法分解法目的：估計yt=tr*sn  yt即為forecast預測值  */
+data motorcycle3; 
+merge motorcycle2 for1;
+for=predict*sn;
+l95=l95*sn;
+u95=u95*sn;
+run;
+proc print data=motorcycle3;
+run;
+
+
+
+title1 'Forecasts of historical and future values of Taiwan Motorcycle Export Sales ';
+legend3  label=none value=('original' 'Forecasts');
+/*y：原始資料 ；for：forecast x11的預測值*/
+proc gplot data=motorcycle3;
+plot y* t =1  for *t =2  /overlay 
+legend=legend3
+href=120;
+run;
+
+title1 'Forecasts of historical and future values of Taiwan Motorcycle Export Sales ';
+legend4  label=none value=('original' 'Forecasts' '95% lower limit' '95% upper limit');
+proc gplot;
+plot y*t=1  for*t=2 l95*t=3 u95*t=3/ overlay  
+legend=legend4 
+href=120;
+run;
+
+
+
+data motorcycle132;
+	input y @@;
+	format y comma10.;
+	time=_n_;
+	date = intnx( 'month', '31aug2010'd, _n_ );
+	format date monyy.;
+	format y comma9.4;
+
+/*Sep2010 - Aug2021*/
+cards;
+37786
+36987
+35885
+32957
+53872
+38459
+43861
+39581
+52085
+48227
+46702
+48150
+47615
+52088
+45875
+40999
+35213
+40865
+39185
+32501
+42787
+37789
+30678
+34815
+37941
+41134
+50292
+52362
+37498
+32223
+39892
+33919
+34475
+25637
+28871
+32240
+31692
+40087
+41485
+38865
+39879
+37117
+37151
+44657
+45553
+40156
+43032
+42086
+36865
+40065
+38426
+43707
+54256
+36805
+47810
+42050
+42494
+40340
+32063
+27906
+31612
+32662
+26936
+31219
+35192
+33089
+44388
+38820
+34015
+38318
+34073
+37111
+31442
+33495
+28819
+31285
+30838
+25054
+30350
+25393
+28063
+31430
+29633
+34871
+28120
+23672
+18560
+22580
+25499
+18066
+30768
+23161
+37931
+26736
+35608
+28615
+21248
+23646
+34356
+20482
+19541
+23218
+28977
+26914
+36006
+30339
+29633
+26230
+22618
+21359
+35128
+16379
+25312
+33372
+35743
+41181
+15612
+15642
+19875
+29307
+39648
+30481
+33699
+32482
+31922
+25862
+44701
+38067
+45028
+32160
+31811
+23732
+;
+
+
+symbol1 i=join  v=star c=brown;
+symbol2  i=join  v=dot c=deepskyblue;
+symbol3  i=join  v=diamondfilled c=teal;
+
+proc print data=motorcycle132;
+run;
+
+data motorcycle4;
+merge motorcycle3 motorcycle132;
+run;
+proc print data=motorcycle4;
+run;
+
+title1 ' Forecasts of future values of Taiwan Motorcycle Export Sales ';
+title2 'Estimate of trend and 95% prediction interval obtained from a regression with AR(1) errors';
+legend6  label=none value=('original values' 'Forecasts' '95% lower limit' '95% upper limit');
+proc gplot data=motorcycle4;
+where t > 120;
+plot y*date=2 for*date= 1  l95*date=3 u95*date =3/overlay  legend=legend6;
+run;
+quit;
+
+data motorcycle5;
+set motorcycle4;
+where t > 120;
+run;
+proc print data=motorcycle5;
+run;
+
+/******************************************************************************/
+/*PROC EXPORT DATA= car5 		/*the data need export*/
+/*            OUTFILE= "C:\Users\ginge\Desktop\BMW predict.xls"        /*save address*/
+/*            DBMS=XLS REPLACE;
+/*     SHEET="sheet1"; 							/*sheet name*/
+/*RUN;
+/******************************************************************************/
+
+data motorcycle_x11;
+set motorcycle5;
+rename y=x for=forecast;
+run;
+proc print data=motorcycle_x11;
+run;
+
+
+/*若資料有被變數轉換(ex: log, **0.5, **0.25 etc)，需將其變換回原本的數值，再與真實值比較*/
+/******************************************************************************/
+/*data passenger_x11;
+set passenger_x11;
+ date=date;
+    x       = exp(x);
+    forecast = exp(forecast); 
+    l95      = exp(l95);
+    u95      = exp(u95);
+ run;
+proc print data=passenger_x11;
+run;
+/******************************************************************************/
+
+
+title1 'Forecasts and 95% prediction intervals for Taiwan Motorcycle Export Sales' ;
+title2 'Obtain from Multiplicative Decompesition Model' ;
+legend1  label=none value=('Predicted' '95% lower limit' '95% upper limit');
+proc gplot data=motorcycle_x11;
+plot (forecast)*date=1
+ (l95)*date=3
+ (u95)*date=3
+ (x)*date=2
+/overlay hminor=0  legend=legend1 haxis= '1sep2020'd to  '1aug2021'd by month;
+run;
+quit;
+
+data MSE;
+set motorcycle_x11;
+MAD = abs(x-forecast);
+MSE = (x-forecast)**2;  /*  ** ：square */
+MPE = ((x-forecast)/x)*100;
+MAPE = (abs(MPE));
+run;
+
+title ' Measuring Forecast Error of Multiplicative Decompesition Model' ;
+proc means data=MSE;
+var MAD MSE MPE MAPE;
+run;
